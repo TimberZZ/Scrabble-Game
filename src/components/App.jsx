@@ -1,0 +1,338 @@
+import React from "react";
+
+//internal components
+import Scoreboard from "./ScoreBoard.jsx";
+//get data
+import Words from "../assets/words.json";
+import LetterValue from "../assets/letter-values.json";
+import State from "../assets/state.json";
+const MyContext = React.createContext();
+class MyProvider extends React.Component {
+  componentWillMount() {}
+  componentDidMount() {}
+  componentDidUpdate() {}
+  componentWillUnmount() {}
+  constructor(props) {
+    super(props);
+    this.state = State;
+  }
+
+  //This method is called after clicking to start the game.
+  //From a string of letters entered,
+  //all words found in the dictionary are generated.
+  //All words are combined so that each entered letter is used only once.
+  startGame = () => {
+    let word = this.state.randomWord;
+    if (word === null || word === "") {
+      alert("Enter a random word first then press start!");
+      return;
+    }
+    this.setState({
+      isStart: true,
+      foundWords: [],
+      score: 0,
+      allCombination: [],
+      matches: []
+    });
+
+    let allMatches = this.generateMatches(word);
+    let allCombination = this.getAllCombination(allMatches, word);
+    this.setState({
+      matches: allMatches,
+      allCombination: allCombination,
+      remainingMatches: allMatches
+    });
+    let hint = this.getMaximumScore(allCombination);
+    console.log(allMatches);
+    if (allMatches === null || allMatches === "" || allMatches.length === 0) {
+      alert("No words can generate by this random letters, try another one!");
+      this.setState({ HintWord: [], HintScore: "" });
+      return;
+    }
+    hint = hint.toString();
+    this.setState({ HintWord: hint });
+  };
+
+  //Find all possible combinations
+  getAllCombination = (matches, randomWord) => {
+    let allCombination = [];
+    for (let i = 0; i < matches.length; i++) {
+      let Combination = [];
+      Combination.push(matches[i]);
+      let pivot = i;
+      let stringWord = randomWord.toString().replace(/,/g, "");
+      let afterRemove = this.removeLetterFromString(matches[i], stringWord);
+
+      while (pivot < matches.length && afterRemove !== null) {
+        let temp = this.removeLetterFromString(matches[pivot], afterRemove);
+        if (temp !== 0) {
+          afterRemove = temp;
+          Combination.push(matches[pivot]);
+          continue;
+        }
+        pivot++;
+      }
+      allCombination.push(Combination);
+    }
+    return allCombination;
+  };
+
+  //
+  // pushValidWord = (set, match) => {
+  //   let randomWord = this.state.randomWord
+  //     .toString()
+  //     .replace(/,/g, "")
+  //     .toLowerCase();
+  //   for (let i = 0; i < set.length; i++) {
+  //     randomWord = this.removeLetterFromString(set[i], randomWord);
+  //   }
+  //   if (this.removeLetterFromString(match, randomWord) !== 0) {
+  //     set.push(match);
+  //   }
+  //   return set;
+  // };
+
+  // getRandomArrayElements = (arr, count) => {
+  //   let result = "";
+  //   var shuffled = arr.slice(0),
+  //     i = arr.length,
+  //     min = i - count,
+  //     temp,
+  //     index;
+  //   while (i-- > min) {
+  //     index = Math.floor((i + 1) * Math.random());
+  //     temp = shuffled[index];
+  //     shuffled[index] = shuffled[i];
+  //     shuffled[i] = temp;
+  //   }
+  //   result = shuffled
+  //     .slice(min)
+  //     .toString()
+  //     .toUpperCase()
+  //     .split("");
+  //   this.setState({
+  //     randomWord: result
+  //   });
+  //   return shuffled.slice(min);
+  // };
+  // calculate score for matrches
+  calculateScoreforMatches = matches => {
+    let matchesScore = [];
+    for (let i = 0; i < matches.length; i++) {
+      let score = 0;
+      for (let j = 0; j < matches[i].length; j++) {
+        score += this.scoreWord(matches[i][j]);
+      }
+      matchesScore.push([matches[i], score]);
+    }
+    this.setState({ matchesScore: matchesScore });
+    return matchesScore;
+  };
+  //find maximum score for matches and update hint
+  getMaximumScore = matches => {
+    let maximumScore = 0;
+    let matchesScore = this.calculateScoreforMatches(matches);
+    let hint;
+    for (let i = 0; i < matchesScore.length; i++) {
+      maximumScore = Math.max(maximumScore, matchesScore[i][1]);
+      hint = maximumScore === matchesScore[i][1] ? matchesScore[i][0] : hint;
+    }
+    this.setState({ HintScore: maximumScore, HintWord: hint });
+    return hint;
+  };
+  //remove letter from string
+  //for example remove "aw" from "wead" and return "ed"
+  removeLetterFromString = (letter, string) => {
+    let s = string.split("");
+    let l = letter.split("");
+    for (let i = 0; i < l.length; i++) {
+      let count = 0;
+      for (let j = 0; j < s.length; j++) {
+        if (l[i] === s[j]) {
+          s.splice(j, 1);
+          count--;
+          break;
+        } else {
+          count++;
+        }
+      }
+      if (count === s.length) {
+        return 0;
+      }
+    }
+    return s.toString();
+  };
+
+  // Returns all words that can be generated by the entered letters,
+  // and the words exist in the dictionary.
+  generateMatches = letter => {
+    let allPossible = this.getPermutationsAllLengths(
+      letter.toString().toUpperCase()
+    );
+    let result = [];
+    let wordo = new Set(Words);
+    for (let i = 0; i < allPossible.length; i++) {
+      if (wordo.has(allPossible[i])) {
+        result.push(allPossible[i].toString().toLowerCase());
+      }
+    }
+    // filter out duplicates and sort by length
+    result = [...new Set(result)].sort((a, b) => b.length - a.length);
+    return result;
+  };
+
+  //After the user enters a valid word, update found word state
+
+  addWordToFoundWords = word => {
+    let newFounds = this.state.foundWords;
+    newFounds.push(word);
+    this.setState({ foundWords: newFounds });
+    this.removeFromRemaining(word);
+  };
+  //remove word from remaining matches after sumbitting
+  removeFromRemaining = word => {
+    let array = this.state.remainingMatches;
+    let index = array.indexOf(word);
+    if (index > -1) {
+      array.splice(index, 1);
+      this.setState({ remainingMatches: array });
+    }
+  };
+  //calculate word score
+  scoreWord = word => {
+    let letters = word.split("");
+    let result = 0;
+    for (let i = 0; i < letters.length; i++) {
+      result = LetterValue[letters[i]] + result;
+    }
+    result =
+      word.length === this.state.randomWord.length
+        ? result * word.length + 50
+        : result * word.length;
+    return result;
+  };
+  //after user input vaild word, add new word's score to total score
+  addScoreToTotal = word => {
+    let scoreOfWord = this.scoreWord(word);
+    let totalScore = this.state.score + scoreOfWord;
+    this.setState({ score: totalScore });
+  };
+  // find all permutations of an array
+  swap = (array, i, j) => {
+    if (i !== j) {
+      let swap = array[i];
+      array[i] = array[j];
+      array[j] = swap;
+    }
+  };
+
+  permute_rec = (res, str, array) => {
+    if (array.length === 0) {
+      res.push(str);
+    } else {
+      for (let i = 0; i < array.length; i++) {
+        this.swap(array, 0, i);
+        this.permute_rec(res, str + array[0], array.slice(1));
+        this.swap(array, 0, i);
+      }
+    }
+  };
+
+  permute = array => {
+    let res = [];
+    this.permute_rec(res, "", array);
+    return res;
+  };
+
+  xpermute_rec = (res, sub, array) => {
+    if (array.length === 0) {
+      if (sub.length > 0) this.permute_rec(res, "", sub);
+    } else {
+      this.xpermute_rec(res, sub, array.slice(1));
+      this.xpermute_rec(res, sub.concat(array[0]), array.slice(1));
+    }
+  };
+
+  // find all permutations for all lengths
+  getPermutationsAllLengths = array => {
+    let res = [];
+    this.xpermute_rec(res, [], array);
+    return res;
+  };
+
+  //Check if word is in dictionary
+  validatedWord = () => {
+    let result = false;
+    let word = this.state.inputWord;
+    let wordo = new Set(Words);
+    if (wordo.has(word.toUpperCase())) {
+      result = true;
+    }
+    this.handleValidityCheck(result, word);
+  };
+  //After checking if the word is in the dictionary, update the state
+  handleValidityCheck = (isValid, word) => {
+    if (isValid && !this.state.foundWords.includes(word)) {
+      this.addScoreToTotal(word);
+      this.addWordToFoundWords(word);
+      this.getMaximumScore(this.state.remainingMatches);
+      this.setState({ inputWord: "" });
+      if (this.state.remainingMatches.length === 0) {
+        alert(
+          "Congrats! You find all words! Press restart button to play another game!"
+        );
+      }
+    } else if (isValid && this.state.foundWords.includes(word)) {
+      alert("This word is already found! Try to find other words!");
+    } else alert("Wrong Answer! Try Again!");
+  };
+  updateInputWord = input => {
+    this.setState({ inputWord: input.target.value });
+  };
+  updateRand = input => {
+    this.setState({ randomWord: input.target.value });
+  };
+  render() {
+    return (
+      <MyContext.Provider
+        value={{
+          generateMatches: this.generateMatches,
+          state: this.state,
+          startGame: this.startGame,
+          endGame: this.endGame,
+          closeShowResult: this.closeShowResult,
+          showResult: this.showResult,
+          updateInputWord: this.updateInputWord,
+          validatedWord: this.validatedWord,
+          updateRand: this.updateRand
+        }}
+      >
+        {this.props.children}
+      </MyContext.Provider>
+    );
+  }
+}
+// render main app component
+class App extends React.Component {
+  render() {
+    return (
+      <MyProvider>
+        <MyContext.Consumer>
+          {context => (
+            <React.Fragment>
+              <div className="App">
+                <Scoreboard />
+              </div>
+            </React.Fragment>
+          )}
+        </MyContext.Consumer>
+      </MyProvider>
+    );
+  }
+}
+
+// export app component
+export default App;
+
+// export context
+export { MyContext };

@@ -1,0 +1,14 @@
+{
+  "score": 0,
+  "matches": [],
+  "remainingMatches": [],
+  "matchersScore": [],
+  "foundWords": [],
+  "randomWord": "",
+  "HintWord": [],
+  "HintScore": "",
+  "isStart": false,
+  "isHintDisplayed": false,
+  "inputWord": "",
+  "allCombination": []
+}
